@@ -1,0 +1,17 @@
+-- AlterTable
+ALTER TABLE "organization_biometric_settings"
+  ADD COLUMN IF NOT EXISTS "verification_policy" TEXT NOT NULL DEFAULT 'FACE_ONLY',
+  ADD COLUMN IF NOT EXISTS "face_verification_enabled" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "face_enrollment_enabled" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "face_confidence_threshold" DOUBLE PRECISION NOT NULL DEFAULT 0.70,
+  ADD COLUMN IF NOT EXISTS "max_face_enrollment_images" INTEGER NOT NULL DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS "liveness_enabled" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "voice_verification_enabled" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "voice_enrollment_enabled" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "min_voice_duration_seconds" INTEGER NOT NULL DEFAULT 2,
+  ADD COLUMN IF NOT EXISTS "max_voice_duration_seconds" INTEGER NOT NULL DEFAULT 10,
+  ADD COLUMN IF NOT EXISTS "challenge_enabled" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "challenge_type" TEXT NOT NULL DEFAULT 'RANDOM',
+  ADD COLUMN IF NOT EXISTS "challenge_attempts" INTEGER NOT NULL DEFAULT 2,
+  ADD COLUMN IF NOT EXISTS "challenge_timeout_seconds" INTEGER NOT NULL DEFAULT 15,
+  ADD COLUMN IF NOT EXISTS "require_liveness" BOOLEAN NOT NULL DEFAULT true;

@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: attendai_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: attendai
+      POSTGRES_PASSWORD: attendai_dev_password
+      POSTGRES_DB: attendai
+    ports:
+      - "5432:5432"
+    volumes:
+      - attendai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attendai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: attendai_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: sh -c "npx prisma migrate deploy && npx prisma generate && npm run dev"
+
+  ai-service:
+    build: ./ai-service
+    container_name: attendai_ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ai-service:/app
+      - attendai_ai_models:/root/.insightface
+
+  frontend:
+    build: ./frontend
+    container_name: attendai_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:4000/api/v1
+    command: sh -c "npm run dev -- --host"
+
+volumes:
+  attendai_pgdata:
+  attendai_ai_models:

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>
+      (function() {
+        var origDefineProperty = Object.defineProperty;
+        Object.defineProperty = function(obj, prop, descriptor) {
+          if ((obj === window || obj === globalThis) && prop === 'fetch' && descriptor) {
+            var originalGet = descriptor.get;
+            var originalSet = descriptor.set;
+            var overridden = false;
+            var currentVal;
+            return origDefineProperty.call(Object, obj, prop, {
+              configurable: true,
+              enumerable: true,
+              get: function() {
+                return overridden ? currentVal : (originalGet ? originalGet.call(this) : descriptor.value);
+              },
+              set: function(val) {
+                overridden = true;
+                currentVal = val;
+                if (originalSet) {
+                  originalSet.call(this, val);
+                }
+              }
+            });
+          }
+          return origDefineProperty.apply(Object, arguments);
+        };
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AttendAI — Smart attendance. Verified identity.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-mist-50">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

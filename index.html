@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>
+      (function() {
+        var origDefineProperty = Object.defineProperty;
+        Object.defineProperty = function(obj, prop, descriptor) {
+          if ((obj === window || obj === globalThis) && prop === 'fetch' && descriptor) {
+            var originalGet = descriptor.get;
+            var originalSet = descriptor.set;
+            var overridden = false;
+            var currentVal;
+            return origDefineProperty.call(Object, obj, prop, {
+              configurable: true,
+              enumerable: true,
+              get: function() {
+                return overridden ? currentVal : (originalGet ? originalGet.call(this) : descriptor.value);
+              },
+              set: function(val) {
+                overridden = true;
+                currentVal = val;
+                if (originalSet) {
+                  originalSet.call(this, val);
+                }
+              }
+            });
+          }
+          return origDefineProperty.apply(Object, arguments);
+        };
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AttendAI</title>
+    <meta name="description" content="Multi-Tenant Smart Attendance SaaS Using Face and Voice Biometric Verification" />
+    <meta property="og:title" content="AttendAI" />
+    <meta property="og:description" content="Multi-Tenant Smart Attendance SaaS Using Face and Voice Biometric Verification" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

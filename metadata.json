@@ -1,0 +1,6 @@
+{
+  "name": "AttendAI",
+  "description": "Multi-Tenant Smart Attendance SaaS Using Face and Voice Biometric Verification",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

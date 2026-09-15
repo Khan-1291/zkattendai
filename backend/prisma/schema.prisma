@@ -1,0 +1,620 @@
+// AttendAI schema
+// Academic structure is intentionally limited to Phase 2B entities here.
+
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ORG_ADMIN
+  HOD
+  TEACHER
+  STUDENT
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  SUSPENDED
+}
+
+
+enum AttendanceSessionStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum AttendanceVerificationMethod {
+  MANUAL
+  FACE
+  VOICE
+  FACE_VOICE
+  FACE_VOICE_LIVENESS
+}
+
+enum AttendanceVerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  MANUAL_OVERRIDE
+}
+enum TeacherStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  DROPPED
+  COMPLETED
+  WITHDRAWN
+}
+
+model Organization {
+  id        String             @id @default(uuid())
+  name      String
+  slug      String             @unique
+  status    OrganizationStatus @default(TRIAL)
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  users     User[]
+  auditLogs AuditLog[]
+  departments Department[]
+  programs Program[]
+
+  attendanceSessions AttendanceSession[]
+  attendanceRecords AttendanceRecord[]
+  academicTerms AcademicTerm[]
+  semesters Semester[]
+  sections Section[]
+  students Student[]
+  teachers Teacher[]
+  courses Course[]
+  courseOfferings CourseOffering[]
+  studentEnrollments StudentEnrollment[]
+
+  biometricSettings OrganizationBiometricSettings?
+  faceEnrollments FaceEnrollment[]
+  faceTemplates FaceTemplate[]
+  voiceEnrollments VoiceEnrollment[]
+  voiceTemplates VoiceTemplate[]
+  biometricAttempts BiometricVerificationAttempt[]
+
+  @@map("organizations")
+}
+
+model Department {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  name       String
+  code       String
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  programs   Program[]
+  students   Student[]
+  teachers   Teacher[]
+  courses    Course[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@unique([organizationId, id])
+  @@index([organizationId])
+  @@map("departments")
+}
+
+model Program {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  departmentId   String       @map("department_id")
+  department     Department   @relation(fields: [organizationId, departmentId], references: [organizationId, id])
+
+  name       String
+  code       String
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  sections   Section[]
+  students   Student[]
+  courseOfferings CourseOffering[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@unique([organizationId, id])
+  @@index([organizationId])
+  @@index([departmentId])
+  @@map("programs")
+}
+
+model AcademicTerm {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  name       String
+  code       String
+  startDate  DateTime @map("start_date")
+  endDate    DateTime @map("end_date")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  semesters  Semester[]
+  courseOfferings CourseOffering[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@unique([organizationId, id])
+  @@index([organizationId])
+  @@map("academic_terms")
+}
+
+model Semester {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  academicTermId String       @map("academic_term_id")
+  academicTerm   AcademicTerm @relation(fields: [academicTermId], references: [id])
+
+  name       String
+  code       String
+  startDate  DateTime @map("start_date")
+  endDate    DateTime @map("end_date")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  sections   Section[]
+  courseOfferings CourseOffering[]
+
+  @@unique([academicTermId, code])
+  @@unique([academicTermId, name])
+  @@unique([organizationId, id])
+  @@index([organizationId])
+  @@index([academicTermId])
+  @@map("semesters")
+}
+
+model Section {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  programId      String       @map("program_id")
+  program        Program      @relation(fields: [organizationId, programId], references: [organizationId, id])
+  semesterId     String       @map("semester_id")
+  semester       Semester     @relation(fields: [semesterId], references: [id])
+
+  name       String
+  code       String
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  currentStudents     Student[]          @relation("CurrentStudentSection")
+  enrollmentSnapshots StudentEnrollment[] @relation("EnrollmentSectionSnapshot")
+  courseOfferings     CourseOffering[]
+  attendanceRecords   AttendanceRecord[]
+
+  @@unique([programId, semesterId, code])
+  @@unique([programId, semesterId, name])
+  @@unique([organizationId, id])
+  @@unique([organizationId, id, semesterId])
+  @@index([organizationId])
+  @@index([programId])
+  @@index([semesterId])
+  @@map("sections")
+}
+
+model User {
+  id             String   @id @default(uuid())
+  organizationId String?  @map("organization_id")
+  // nullable: SUPER_ADMIN is platform-level and not tied to one organization
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  fullName     String   @map("full_name")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  isActive     Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  auditLogs AuditLog[]
+  studentProfile Student?
+  teacherProfile Teacher?
+
+  @@index([organizationId])
+  @@unique([organizationId, id])
+  @@map("users")
+}
+
+model Student {
+  id               String       @id @default(uuid())
+  organizationId   String       @map("organization_id")
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  userId           String       @map("user_id")
+  user             User         @relation(fields: [organizationId, userId], references: [organizationId, id])
+  departmentId     String       @map("department_id")
+  department       Department   @relation(fields: [organizationId, departmentId], references: [organizationId, id])
+  programId        String       @map("program_id")
+  program          Program      @relation(fields: [organizationId, programId], references: [organizationId, id])
+  currentSectionId String?      @map("current_section_id")
+  currentSection   Section?     @relation("CurrentStudentSection", fields: [organizationId, currentSectionId], references: [organizationId, id])
+
+  studentNumber String        @map("student_number")
+  status        StudentStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  enrollments StudentEnrollment[]
+  attendanceRecords AttendanceRecord[]
+  faceEnrollments FaceEnrollment[]
+  voiceEnrollments VoiceEnrollment[]
+  biometricAttempts BiometricVerificationAttempt[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, userId])
+  @@unique([organizationId, studentNumber])
+  @@index([organizationId])
+  @@index([organizationId, departmentId])
+  @@index([organizationId, programId])
+  @@index([organizationId, currentSectionId])
+  @@map("students")
+}
+
+model Teacher {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [organizationId, userId], references: [organizationId, id])
+  departmentId   String       @map("department_id")
+  department     Department   @relation(fields: [organizationId, departmentId], references: [organizationId, id])
+
+  employeeNumber String        @map("employee_number")
+  status         TeacherStatus @default(ACTIVE)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  courseOfferings CourseOffering[]
+  attendanceSessions AttendanceSession[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, userId])
+  @@unique([organizationId, employeeNumber])
+  @@index([organizationId])
+  @@index([organizationId, departmentId])
+  @@map("teachers")
+}
+
+model Course {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  departmentId   String       @map("department_id")
+  department     Department   @relation(fields: [organizationId, departmentId], references: [organizationId, id])
+
+  code        String
+  title       String
+  description String?
+  creditHours Int      @map("credit_hours")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  offerings CourseOffering[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, departmentId])
+  @@map("courses")
+}
+
+model CourseOffering {
+  id             String        @id @default(uuid())
+  organizationId String        @map("organization_id")
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  courseId       String        @map("course_id")
+  course         Course        @relation(fields: [organizationId, courseId], references: [organizationId, id])
+  academicTermId String        @map("academic_term_id")
+  academicTerm   AcademicTerm  @relation(fields: [organizationId, academicTermId], references: [organizationId, id])
+  programId      String        @map("program_id")
+  program        Program       @relation(fields: [organizationId, programId], references: [organizationId, id])
+  semesterId     String        @map("semester_id")
+  semester       Semester      @relation(fields: [organizationId, semesterId], references: [organizationId, id])
+  sectionId      String        @map("section_id")
+  section        Section       @relation(fields: [organizationId, sectionId, semesterId], references: [organizationId, id, semesterId])
+  teacherId      String        @map("teacher_id")
+  teacher        Teacher       @relation(fields: [organizationId, teacherId], references: [organizationId, id])
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  enrollments StudentEnrollment[]
+  attendanceSessions AttendanceSession[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, courseId, semesterId, sectionId])
+  @@index([organizationId])
+  @@index([organizationId, academicTermId])
+  @@index([organizationId, courseId])
+  @@index([organizationId, programId])
+  @@index([organizationId, semesterId])
+  @@index([organizationId, sectionId])
+  @@index([organizationId, teacherId])
+  @@map("course_offerings")
+}
+
+model StudentEnrollment {
+  id               String         @id @default(uuid())
+  organizationId   String         @map("organization_id")
+  organization     Organization   @relation(fields: [organizationId], references: [id])
+  studentId        String         @map("student_id")
+  student          Student        @relation(fields: [organizationId, studentId], references: [organizationId, id])
+  courseOfferingId String         @map("course_offering_id")
+  courseOffering   CourseOffering @relation(fields: [organizationId, courseOfferingId], references: [organizationId, id])
+  sectionId        String         @map("section_id")
+  section          Section        @relation("EnrollmentSectionSnapshot", fields: [organizationId, sectionId], references: [organizationId, id])
+
+  status     EnrollmentStatus @default(ENROLLED)
+  enrolledAt DateTime        @default(now()) @map("enrolled_at")
+  droppedAt  DateTime?       @map("dropped_at")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+  attendanceRecords AttendanceRecord[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, studentId, courseOfferingId])
+  @@index([organizationId])
+  @@index([organizationId, studentId])
+  @@index([organizationId, courseOfferingId])
+  @@index([organizationId, sectionId])
+  @@map("student_enrollments")
+}
+
+model AttendanceSession {
+  id               String        @id @default(uuid())
+  organizationId   String        @map("organization_id")
+  organization     Organization  @relation(fields: [organizationId], references: [id])
+  courseOfferingId String        @map("course_offering_id")
+  courseOffering   CourseOffering @relation(fields: [organizationId, courseOfferingId], references: [organizationId, id])
+  teacherId        String        @map("teacher_id")
+  teacher          Teacher       @relation(fields: [organizationId, teacherId], references: [organizationId, id])
+
+  sessionDate DateTime @map("session_date")
+  title       String?
+  notes       String?
+  status      AttendanceSessionStatus @default(OPEN)
+  closedAt    DateTime? @map("closed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  records AttendanceRecord[]
+  biometricAttempts BiometricVerificationAttempt[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId])
+  @@index([organizationId, courseOfferingId])
+  @@index([organizationId, teacherId])
+  @@index([organizationId, sessionDate])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id                  String       @id @default(uuid())
+  organizationId      String       @map("organization_id")
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  attendanceSessionId String       @map("attendance_session_id")
+  attendanceSession   AttendanceSession @relation(fields: [organizationId, attendanceSessionId], references: [organizationId, id])
+  studentId           String       @map("student_id")
+  student             Student      @relation(fields: [organizationId, studentId], references: [organizationId, id])
+  enrollmentId        String       @map("enrollment_id")
+  enrollment          StudentEnrollment @relation(fields: [organizationId, enrollmentId], references: [organizationId, id])
+  sectionId           String       @map("section_id")
+  section             Section      @relation(fields: [organizationId, sectionId], references: [organizationId, id])
+
+  status             AttendanceStatus @default(ABSENT)
+  verificationMethod AttendanceVerificationMethod @default(MANUAL) @map("verification_method")
+  verificationStatus AttendanceVerificationStatus @default(MANUAL_OVERRIDE) @map("verification_status")
+  verifiedAt         DateTime? @map("verified_at")
+  markedAt           DateTime @default(now()) @map("marked_at")
+  notes              String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, attendanceSessionId, studentId])
+  @@index([organizationId])
+  @@index([organizationId, attendanceSessionId])
+  @@index([organizationId, studentId])
+  @@index([organizationId, enrollmentId])
+  @@index([organizationId, sectionId])
+  @@map("attendance_records")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String?  @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  actorUserId    String?  @map("actor_user_id")
+  actor          User?    @relation(fields: [actorUserId], references: [id])
+
+  action     String
+  targetType String? @map("target_type")
+  targetId   String? @map("target_id")
+  metadata   Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@map("audit_logs")
+}
+
+enum BiometricVerificationMode {
+  NORMAL
+  SECURE
+}
+
+model OrganizationBiometricSettings {
+  id                      String                    @id @default(uuid())
+  organizationId          String                    @unique @map("organization_id")
+  organization            Organization              @relation(fields: [organizationId], references: [id])
+  verificationMode        BiometricVerificationMode @default(NORMAL) @map("verification_mode")
+  verificationPolicy      String                    @default("FACE_ONLY") @map("verification_policy")
+  faceVerificationEnabled  Boolean                   @default(true) @map("face_verification_enabled")
+  faceEnrollmentEnabled   Boolean                   @default(true) @map("face_enrollment_enabled")
+  faceThreshold           Float                     @default(0.60) @map("face_threshold")
+  faceConfidenceThreshold Float                     @default(0.70) @map("face_confidence_threshold")
+  maxFaceEnrollmentImages Int                       @default(5) @map("max_face_enrollment_images")
+  livenessEnabled         Boolean                   @default(true) @map("liveness_enabled")
+  voiceVerificationEnabled Boolean                  @default(true) @map("voice_verification_enabled")
+  voiceEnrollmentEnabled  Boolean                   @default(true) @map("voice_enrollment_enabled")
+  voiceThreshold          Float                     @default(0.65) @map("voice_threshold")
+  minVoiceDurationSeconds Int                       @default(2) @map("min_voice_duration_seconds")
+  maxVoiceDurationSeconds Int                       @default(10) @map("max_voice_duration_seconds")
+  challengeEnabled        Boolean                   @default(true) @map("challenge_enabled")
+  challengeType           String                    @default("RANDOM") @map("challenge_type")
+  challengeAttempts       Int                       @default(2) @map("challenge_attempts")
+  challengeTimeoutSeconds Int                       @default(15) @map("challenge_timeout_seconds")
+  requireLiveness         Boolean                   @default(true) @map("require_liveness")
+  livenessThreshold       Float                     @default(0.70) @map("liveness_threshold")
+  livenessChallengeCount  Int                       @default(2) @map("liveness_challenge_count")
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  updatedAt               DateTime                  @updatedAt @map("updated_at")
+
+  @@map("organization_biometric_settings")
+}
+
+model FaceEnrollment {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  studentId      String       @map("student_id")
+  student        Student      @relation(fields: [organizationId, studentId], references: [organizationId, id])
+  isActive       Boolean      @default(true) @map("is_active")
+  qualityScore   Float        @default(0.0) @map("quality_score")
+  sampleCount    Int          @default(0) @map("sample_count")
+  enrolledAt     DateTime     @default(now()) @map("enrolled_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  templates      FaceTemplate[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId])
+  @@index([organizationId, studentId])
+  @@map("face_enrollments")
+}
+
+model FaceTemplate {
+  id                 String         @id @default(uuid())
+  organizationId     String         @map("organization_id")
+  organization       Organization   @relation(fields: [organizationId], references: [id])
+  faceEnrollmentId   String         @map("face_enrollment_id")
+  faceEnrollment     FaceEnrollment @relation(fields: [faceEnrollmentId], references: [id], onDelete: Cascade)
+  modelName          String         @map("model_name")
+  modelVersion       String         @default("1.0") @map("model_version")
+  embeddingDimension Int            @default(512) @map("embedding_dimension")
+  encryptedEmbedding String         @map("encrypted_embedding")
+  qualityScore       Float          @default(0.0) @map("quality_score")
+  createdAt          DateTime       @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([faceEnrollmentId])
+  @@map("face_templates")
+}
+
+model VoiceEnrollment {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  studentId      String       @map("student_id")
+  student        Student      @relation(fields: [organizationId, studentId], references: [organizationId, id])
+  isActive       Boolean      @default(true) @map("is_active")
+  qualityScore   Float        @default(0.0) @map("quality_score")
+  sampleCount    Int          @default(0) @map("sample_count")
+  enrolledAt     DateTime     @default(now()) @map("enrolled_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  templates      VoiceTemplate[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId])
+  @@index([organizationId, studentId])
+  @@map("voice_enrollments")
+}
+
+model VoiceTemplate {
+  id                 String          @id @default(uuid())
+  organizationId     String          @map("organization_id")
+  organization       Organization    @relation(fields: [organizationId], references: [id])
+  voiceEnrollmentId  String          @map("voice_enrollment_id")
+  voiceEnrollment    VoiceEnrollment @relation(fields: [voiceEnrollmentId], references: [id], onDelete: Cascade)
+  modelName          String          @map("model_name")
+  modelVersion       String          @default("1.0") @map("model_version")
+  embeddingDimension Int             @default(192) @map("embedding_dimension")
+  encryptedEmbedding String          @map("encrypted_embedding")
+  qualityScore       Float           @default(0.0) @map("quality_score")
+  createdAt          DateTime        @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([voiceEnrollmentId])
+  @@map("voice_templates")
+}
+
+model BiometricVerificationAttempt {
+  id                  String             @id @default(uuid())
+  organizationId      String             @map("organization_id")
+  organization        Organization       @relation(fields: [organizationId], references: [id])
+  attendanceSessionId String?            @map("attendance_session_id")
+  attendanceSession   AttendanceSession? @relation(fields: [organizationId, attendanceSessionId], references: [organizationId, id])
+  studentId           String             @map("student_id")
+  student             Student            @relation(fields: [organizationId, studentId], references: [organizationId, id])
+  verificationMode    String             @map("verification_mode")
+  faceScore           Float?             @map("face_score")
+  facePass            Boolean            @map("face_pass")
+  livenessScore       Float?             @map("liveness_score")
+  livenessPass        Boolean            @map("liveness_pass")
+  voiceScore          Float?             @map("voice_score")
+  voicePass           Boolean?           @map("voice_pass")
+  overallPass         Boolean            @map("overall_pass")
+  rejectionReason     String?            @map("rejection_reason")
+  latencyMs           Int?               @map("latency_ms")
+  createdAt           DateTime           @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([organizationId, studentId])
+  @@index([organizationId, attendanceSessionId])
+  @@index([createdAt])
+  @@map("biometric_verification_attempts")
+}
